@@ -23,7 +23,7 @@ class Tensor:
         self.value = value
         self.zero_grad()
         self.name = name
-        self._backprop = lambda: None
+        self._backward = lambda: None
         self._prev = prev
 
     def zero_grad(self):
@@ -59,17 +59,17 @@ class Tensor:
 
         self.grad = np.ones_like(self.value)
         for node in reversed(ordered_nodes):
-            node._backprop()
+            node._backward()
 
     def __add__(self, other):
         other = other if isinstance(other, Tensor) else Tensor(other, name="constant")
         out = Tensor(self.value + other.value, (self, other), name="add")
 
-        def _backprop():
+        def _backward():
             self.accumulate_grad(out.grad)
             other.accumulate_grad(out.grad)
 
-        out._backprop = _backprop
+        out._backward = _backward
         return out
 
     def __mul__(self, other):
@@ -80,71 +80,71 @@ class Tensor:
             assert len(self.value.shape) == len(other.value.shape)
         out = Tensor(self.value * other.value, (self, other), name="mul")
 
-        def _backprop():
+        def _backward():
             self.accumulate_grad(out.grad * other.value)
             other.accumulate_grad(out.grad * self.value)
 
-        out._backprop = _backprop
+        out._backward = _backward
         return out
 
     def __pow__(self, pow: Union[int, float]):
         out = Tensor(self.value**pow, (self,), name="pow")
 
-        def _backprop():
+        def _backward():
             self.accumulate_grad(out.grad * pow * self.value ** (pow - 1))
 
-        out._backprop = _backprop
+        out._backward = _backward
         return out
 
     def exp(self):
         out = Tensor(np.exp(self.value), (self,), name="exp")
 
-        def _backprop():
+        def _backward():
             self.accumulate_grad(out.grad * out.value)
 
-        out._backprop = _backprop
+        out._backward = _backward
 
         return out
 
     def log(self):
         out = Tensor(np.log(self.value), (self,), name="log")
 
-        def _backprop():
+        def _backward():
             self.accumulate_grad(out.grad / self.value)
 
-        out._backprop = _backprop
+        out._backward = _backward
         return out
 
     def matmul(self, other):
         # Self A x B, other B x C, out A x C
         out = Tensor(np.matmul(self.value, other.value), (self, other), name="matmul")
 
-        def _backprop():
+        def _backward():
             # self.grad A x B = (out) A x C * (other.T) C x B
             self.accumulate_grad(np.matmul(out.grad, other.value.T))
             # other.grad B x C = (self.T) B x A * (out) A x C
             other.accumulate_grad(np.matmul(self.value.T, out.grad))
 
-        out._backprop = _backprop
+        out._backward = _backward
         return out
 
     def relu(self):
         out = Tensor(np.maximum(0, self.value), (self,), name="relu")
 
-        def _backprop():
+        def _backward():
             self.accumulate_grad(out.grad * (self.value > 0))
 
-        out._backprop = _backprop
+        out._backward = _backward
         return out
 
     def sum(self, axis=0):
         out = Tensor(np.sum(self.value, axis=axis, keepdims=True), (self,), name="sum")
         axis_dim = self.value.shape[axis]
 
-        def _backprop():
+        def _backward():
             self.accumulate_grad(np.repeat(out.grad, axis_dim, axis=axis))
 
-        out._backprop = _backprop
+        out._backward = _backward
         return out
 
     def __neg__(self):

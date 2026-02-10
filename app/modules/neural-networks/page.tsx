@@ -6,6 +6,7 @@ import {
   LeadText,
   SectionTitle,
 } from "@/app/components/typography";
+import TrainingProgressPanel from "./training-progress-panel";
 
 export const metadata = {
   title: "Neural Networks | Deep Learning Textbook",
@@ -14,9 +15,10 @@ export const metadata = {
 
 export default function NeuralNetworksPage() {
   return (
-    <div className="min-h-screen px-6 py-12 font-sans text-[var(--foreground)]">
-      <main className="mx-auto w-full max-w-3xl">
-        <nav aria-label="Breadcrumb" className="mb-10">
+    <div className="min-h-screen py-12 font-sans text-[var(--foreground)]">
+      <main className="space-y-12">
+        <section className="mx-auto w-full max-w-3xl px-6">
+          <nav aria-label="Breadcrumb" className="mb-10">
           <ol className="flex flex-wrap items-center gap-2 text-sm text-[var(--muted)]">
             <li>
               <BreadcrumbLink href="/">Home</BreadcrumbLink>
@@ -26,17 +28,18 @@ export default function NeuralNetworksPage() {
               Neural Networks
             </li>
           </ol>
-        </nav>
+          </nav>
 
-        <header className="mb-12">
-          <DisplayTitle>Neural Networks and Backpropagation</DisplayTitle>
-          <LeadText>
-            Let&apos;s dive into the deep end and replicate Pytorch
-          </LeadText>
-        </header>
+          <header>
+            <DisplayTitle>Neural Networks and Backpropagation</DisplayTitle>
+            <LeadText>
+              Let&apos;s dive into the deep end and replicate Pytorch
+            </LeadText>
+          </header>
+        </section>
 
         <article className="space-y-12">
-          <section>
+          <section className="mx-auto w-full max-w-3xl px-6">
             <BodyText>
               We&apos;re going to replicate, largely from scratch, enough of
               Pytorch&apos;s API to train the neural network that is in
@@ -48,7 +51,11 @@ export default function NeuralNetworksPage() {
             </BodyText>
           </section>
 
-          <section>
+          <section className="mx-auto w-full max-w-6xl px-6">
+            <TrainingProgressPanel />
+          </section>
+
+          <section className="mx-auto w-full max-w-3xl px-6">
             <SectionTitle>The forward pass</SectionTitle>
             <BodyText>
               Given an input (e.g. a vector or an image flattened into numbers),
@@ -61,7 +68,7 @@ export default function NeuralNetworksPage() {
             </BodyText>
           </section>
 
-          <section>
+          <section className="mx-auto w-full max-w-3xl px-6">
             <SectionTitle>Loss and the backward pass</SectionTitle>
             <BodyText>
               We compare the output to the desired target with a{" "}

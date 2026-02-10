@@ -2,7 +2,10 @@ import Link from "next/link";
 
 export default function Home() {
   const modules = [
-    { title: "Neural Networks", href: "/modules/neural-networks" },
+    {
+      title: "Neural Networks",
+      href: "/modules/neural-networks",
+    },
     { title: "Initialization", href: "/modules/initialization" },
     { title: "Batch Normalization", href: "/modules/batch-normalization" },
     { title: "Momentum", href: "/modules/momentum" },

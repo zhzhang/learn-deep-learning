@@ -1,9 +1,6 @@
-import datasets
 import torch
 from torch import nn
-from torch.utils.data import DataLoader
 from transformers import (
-    TrainingArguments,
     Trainer,
     DefaultDataCollator,
     AutoImageProcessor,

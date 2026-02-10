@@ -202,3 +202,4 @@ next-env.d.ts
 
 # torch
 data/
+*.pth

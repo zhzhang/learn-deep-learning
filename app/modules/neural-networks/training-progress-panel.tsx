@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 type RunStatus = "queued" | "running" | "completed" | "failed";
 
@@ -12,7 +12,7 @@ type ProgressEvent = {
   batches?: number;
   loss?: number;
   accuracy?: number;
-  model_path?: string;
+  samples?: unknown;
   [key: string]: unknown;
 };
 
@@ -22,13 +22,76 @@ type RunSnapshot = {
   error?: string | null;
 };
 
-type EpochMetric = {
-  epoch: number;
-  trainLoss?: number;
-  testLoss?: number;
-  trainAccuracy?: number;
-  testAccuracy?: number;
+type StepLossPoint = {
+  step: number;
+  loss: number;
 };
+
+type SampleDescriptor = {
+  sample_id: number;
+  sample_index: number;
+  class_index: number;
+  class_name: string;
+  slot: number;
+};
+
+type SampleEval = {
+  sample_id: number;
+  predicted_label: number;
+  predicted_class_name: string;
+  correct: boolean;
+};
+
+function parseSampleDescriptors(value: unknown): SampleDescriptor[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => {
+      if (typeof item !== "object" || item === null) return null;
+      const candidate = item as Record<string, unknown>;
+      if (
+        typeof candidate.sample_id !== "number" ||
+        typeof candidate.sample_index !== "number" ||
+        typeof candidate.class_index !== "number" ||
+        typeof candidate.class_name !== "string" ||
+        typeof candidate.slot !== "number"
+      ) {
+        return null;
+      }
+      return {
+        sample_id: candidate.sample_id,
+        sample_index: candidate.sample_index,
+        class_index: candidate.class_index,
+        class_name: candidate.class_name,
+        slot: candidate.slot,
+      };
+    })
+    .filter((item): item is SampleDescriptor => item !== null)
+    .sort((a, b) => a.class_index - b.class_index || a.slot - b.slot);
+}
+
+function parseSampleEvaluations(value: unknown): SampleEval[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => {
+      if (typeof item !== "object" || item === null) return null;
+      const candidate = item as Record<string, unknown>;
+      if (
+        typeof candidate.sample_id !== "number" ||
+        typeof candidate.predicted_label !== "number" ||
+        typeof candidate.predicted_class_name !== "string" ||
+        typeof candidate.correct !== "boolean"
+      ) {
+        return null;
+      }
+      return {
+        sample_id: candidate.sample_id,
+        predicted_label: candidate.predicted_label,
+        predicted_class_name: candidate.predicted_class_name,
+        correct: candidate.correct,
+      };
+    })
+    .filter((item): item is SampleEval => item !== null);
+}
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
@@ -54,7 +117,12 @@ export default function TrainingProgressPanel() {
   const [latestProgress, setLatestProgress] = useState<ProgressEvent | null>(
     null,
   );
-  const [epochMetrics, setEpochMetrics] = useState<EpochMetric[]>([]);
+  const [stepLoss, setStepLoss] = useState<StepLossPoint[]>([]);
+  const [samples, setSamples] = useState<SampleDescriptor[]>([]);
+  const [sampleEvalById, setSampleEvalById] = useState<Record<number, SampleEval>>(
+    {},
+  );
+  const [sampleEvalEpoch, setSampleEvalEpoch] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const canStart =
@@ -65,49 +133,35 @@ export default function TrainingProgressPanel() {
     return runStatus;
   }, [runStatus]);
 
-  const lossSeries = useMemo(() => {
-    return {
-      train: epochMetrics
-        .map((metric) =>
-          typeof metric.trainLoss === "number"
-            ? { x: metric.epoch, y: metric.trainLoss }
-            : null,
-        )
-        .filter((value): value is { x: number; y: number } => value !== null),
-      test: epochMetrics
-        .map((metric) =>
-          typeof metric.testLoss === "number"
-            ? { x: metric.epoch, y: metric.testLoss }
-            : null,
-        )
-        .filter((value): value is { x: number; y: number } => value !== null),
-    };
-  }, [epochMetrics]);
+  const lossSeries = useMemo(
+    () => ({
+      train: stepLoss.map((point) => ({ x: point.step, y: point.loss })),
+      test: [] as Array<{ x: number; y: number }>,
+    }),
+    [stepLoss],
+  );
 
-  const accuracySeries = useMemo(() => {
-    return {
-      train: epochMetrics
-        .map((metric) =>
-          typeof metric.trainAccuracy === "number"
-            ? { x: metric.epoch, y: metric.trainAccuracy }
-            : null,
-        )
-        .filter((value): value is { x: number; y: number } => value !== null),
-      test: epochMetrics
-        .map((metric) =>
-          typeof metric.testAccuracy === "number"
-            ? { x: metric.epoch, y: metric.testAccuracy }
-            : null,
-        )
-        .filter((value): value is { x: number; y: number } => value !== null),
-    };
-  }, [epochMetrics]);
+  const stepCount = useMemo(() => {
+    if (!stepLoss.length) return 1;
+    return Math.max(1, stepLoss[stepLoss.length - 1]?.step ?? 1);
+  }, [stepLoss]);
 
-  const epochCount = useMemo(() => {
-    if (!epochMetrics.length) return 1;
-    const maxEpoch = Math.max(...epochMetrics.map((metric) => metric.epoch));
-    return Math.max(1, maxEpoch);
-  }, [epochMetrics]);
+  const loadSamples = useCallback(async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/chapters/torch/samples`);
+      if (!response.ok) {
+        return;
+      }
+      const data = (await response.json()) as { samples?: unknown };
+      setSamples(parseSampleDescriptors(data.samples));
+    } catch {
+      // No-op: sample preview is optional and should not block training UI.
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadSamples();
+  }, [loadSamples]);
 
   const connectRunSocket = () => {
     const socket = new WebSocket(wsUrlForRun());
@@ -134,63 +188,31 @@ export default function TrainingProgressPanel() {
         }
         if (payload.type === "progress") {
           setLatestProgress(payload);
-          if (
-            payload.stage === "train_summary" &&
-            typeof payload.epoch === "number" &&
-            typeof payload.loss === "number" &&
-            typeof payload.accuracy === "number"
-          ) {
-            const epoch = payload.epoch;
-            const loss = payload.loss;
-            const accuracy = payload.accuracy;
-            setEpochMetrics((previous) => {
-              const next = [...previous];
-              const index = next.findIndex((metric) => metric.epoch === epoch);
-              if (index === -1) {
-                next.push({
-                  epoch,
-                  trainLoss: loss,
-                  trainAccuracy: accuracy,
-                });
-              } else {
-                next[index] = {
-                  ...next[index],
-                  trainLoss: loss,
-                  trainAccuracy: accuracy,
-                };
-              }
-              next.sort((a, b) => a.epoch - b.epoch);
-              return next;
-            });
+          if (payload.stage === "samples_ready") {
+            setSamples(parseSampleDescriptors(payload.samples));
           }
           if (
-            payload.stage === "test_summary" &&
-            typeof payload.epoch === "number" &&
-            typeof payload.loss === "number" &&
-            typeof payload.accuracy === "number"
+            payload.stage === "sample_eval" &&
+            typeof payload.epoch === "number"
           ) {
-            const epoch = payload.epoch;
+            const evaluations = parseSampleEvaluations(payload.samples);
+            const nextMap: Record<number, SampleEval> = {};
+            for (const evaluation of evaluations) {
+              nextMap[evaluation.sample_id] = evaluation;
+            }
+            setSampleEvalById(nextMap);
+            setSampleEvalEpoch(payload.epoch);
+          }
+          if (
+            payload.stage === "train" &&
+            typeof payload.epoch === "number" &&
+            typeof payload.batch === "number" &&
+            typeof payload.batches === "number" &&
+            typeof payload.loss === "number"
+          ) {
+            const step = (payload.epoch - 1) * payload.batches + payload.batch;
             const loss = payload.loss;
-            const accuracy = payload.accuracy;
-            setEpochMetrics((previous) => {
-              const next = [...previous];
-              const index = next.findIndex((metric) => metric.epoch === epoch);
-              if (index === -1) {
-                next.push({
-                  epoch,
-                  testLoss: loss,
-                  testAccuracy: accuracy,
-                });
-              } else {
-                next[index] = {
-                  ...next[index],
-                  testLoss: loss,
-                  testAccuracy: accuracy,
-                };
-              }
-              next.sort((a, b) => a.epoch - b.epoch);
-              return next;
-            });
+            setStepLoss((previous) => [...previous, { step, loss }]);
           }
           return;
         }
@@ -215,7 +237,10 @@ export default function TrainingProgressPanel() {
     setError(null);
     setRunStatus(null);
     setLatestProgress(null);
-    setEpochMetrics([]);
+    setStepLoss([]);
+    setSamples([]);
+    setSampleEvalById({});
+    setSampleEvalEpoch(null);
 
     try {
       const response = await fetch(`${API_BASE_URL}/chapters/torch/runs`, {
@@ -234,6 +259,7 @@ export default function TrainingProgressPanel() {
       }
       const data = (await response.json()) as { run: RunSnapshot };
       setRunStatus(data.run.status);
+      void loadSamples();
       connectRunSocket();
     } catch (startError) {
       setError(String(startError));
@@ -287,28 +313,23 @@ export default function TrainingProgressPanel() {
         </p>
       )}
 
-      <div className="grid gap-4 rounded-md border border-[var(--surface-border)] bg-white/50 p-3 md:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-[3fr_2fr]">
         <MetricChart
-          title="Loss by epoch"
-          xMax={epochCount}
+          title="Loss by step"
+          xMax={stepCount}
           yMin={0}
-          yMax={Math.max(1, ...lossSeries.train.map((point) => point.y), ...lossSeries.test.map((point) => point.y))}
+          yMax={Math.max(1, ...lossSeries.train.map((point) => point.y))}
           primarySeries={lossSeries.train}
           secondarySeries={lossSeries.test}
           primaryLabel="Train"
-          secondaryLabel="Test"
+          secondaryLabel=""
           yFormatter={(value) => value.toFixed(3)}
+          xLabelPrefix="step"
         />
-        <MetricChart
-          title="Accuracy by epoch"
-          xMax={epochCount}
-          yMin={0}
-          yMax={1}
-          primarySeries={accuracySeries.train}
-          secondarySeries={accuracySeries.test}
-          primaryLabel="Train"
-          secondaryLabel="Test"
-          yFormatter={(value) => `${(value * 100).toFixed(1)}%`}
+        <FashionMnistSampleGrid
+          samples={samples}
+          sampleEvalById={sampleEvalById}
+          sampleEvalEpoch={sampleEvalEpoch}
         />
       </div>
     </div>
@@ -325,6 +346,7 @@ function MetricChart({
   primaryLabel,
   secondaryLabel,
   yFormatter,
+  xLabelPrefix,
 }: {
   title: string;
   xMax: number;
@@ -335,17 +357,20 @@ function MetricChart({
   primaryLabel: string;
   secondaryLabel: string;
   yFormatter: (value: number) => string;
+  xLabelPrefix: string;
 }) {
   const primaryPath = linePath(primarySeries, xMax, yMin, yMax);
   const secondaryPath = linePath(secondarySeries, xMax, yMin, yMax);
 
   return (
-    <div className="rounded-md border border-[var(--surface-border)] p-3">
+    <div>
       <div className="mb-2 flex items-center justify-between text-xs">
         <span className="font-medium">{title}</span>
         <span className="flex items-center gap-3 text-[var(--muted)]">
           <LegendChip color="#2563eb" label={primaryLabel} />
-          <LegendChip color="#16a34a" label={secondaryLabel} />
+          {secondaryLabel ? (
+            <LegendChip color="#16a34a" label={secondaryLabel} />
+          ) : null}
         </span>
       </div>
       <svg
@@ -391,7 +416,7 @@ function MetricChart({
           fill="#64748b"
           textAnchor="end"
         >
-          epoch {xMax}
+          {xLabelPrefix} {xMax}
         </text>
         {primaryPath && (
           <path d={primaryPath} fill="none" stroke="#2563eb" strokeWidth="3" />
@@ -437,5 +462,70 @@ function LegendChip({ color, label }: { color: string; label: string }) {
       />
       <span>{label}</span>
     </span>
+  );
+}
+
+function FashionMnistSampleGrid({
+  samples,
+  sampleEvalById,
+  sampleEvalEpoch,
+}: {
+  samples: SampleDescriptor[];
+  sampleEvalById: Record<number, SampleEval>;
+  sampleEvalEpoch: number | null;
+}) {
+  const orderedSamples = [...samples].sort(
+    (a, b) => a.class_index - b.class_index || a.slot - b.slot,
+  );
+
+  return (
+    <div>
+      <div className="mb-2 flex items-center justify-between text-xs">
+        <span className="font-medium">Fashion-MNIST samples</span>
+        <span className="text-[var(--muted)]">
+          {sampleEvalEpoch ? `tint from epoch ${sampleEvalEpoch} test run` : "awaiting test run"}
+        </span>
+      </div>
+      {orderedSamples.length > 0 ? (
+        <div className="max-h-[32rem] overflow-auto">
+          <div className="grid grid-cols-10 gap-0">
+            {orderedSamples.map((sample) => {
+              const evaluation = sampleEvalById[sample.sample_id];
+              const tintClass = evaluation
+                ? evaluation.correct
+                  ? "bg-green-500/30"
+                  : "bg-red-500/30"
+                : "bg-transparent";
+              const title = evaluation
+                ? `${sample.class_name} | predicted ${evaluation.predicted_class_name}`
+                : `${sample.class_name} | prediction pending`;
+              return (
+                <div
+                  key={sample.sample_id}
+                  className="relative aspect-square overflow-hidden"
+                  title={title}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={`${API_BASE_URL}/chapters/torch/samples/${sample.sample_id}.png`}
+                    alt={`${sample.class_name} sample ${sample.slot + 1}`}
+                    className="block h-full w-full object-cover"
+                    loading="lazy"
+                  />
+                  <div className={`pointer-events-none absolute inset-0 ${tintClass}`} />
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : (
+        <p className="text-xs text-[var(--muted)]">
+          Samples will appear here after the server prepares the dataset.
+        </p>
+      )}
+      <p className="mt-2 text-xs text-[var(--muted)]">
+        Images are streamed from the FastAPI sample endpoint.
+      </p>
+    </div>
   );
 }

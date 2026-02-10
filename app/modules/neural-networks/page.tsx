@@ -19,19 +19,19 @@ export default function NeuralNetworksPage() {
       <main className="space-y-12">
         <section className="mx-auto w-full max-w-3xl px-6">
           <nav aria-label="Breadcrumb" className="mb-10">
-          <ol className="flex flex-wrap items-center gap-2 text-sm text-[var(--muted)]">
-            <li>
-              <BreadcrumbLink href="/">Home</BreadcrumbLink>
-            </li>
-            <li aria-hidden="true">/</li>
-            <li className="text-[var(--foreground)]" aria-current="page">
-              Neural Networks
-            </li>
-          </ol>
+            <ol className="flex flex-wrap items-center gap-2 text-sm text-[var(--muted)]">
+              <li>
+                <BreadcrumbLink href="/">Home</BreadcrumbLink>
+              </li>
+              <li aria-hidden="true">/</li>
+              <li className="text-[var(--foreground)]" aria-current="page">
+                Neural Networks
+              </li>
+            </ol>
           </nav>
 
           <header>
-            <DisplayTitle>Neural Networks and Backpropagation</DisplayTitle>
+            <DisplayTitle>Tensors and Backpropagation</DisplayTitle>
             <LeadText>
               Let&apos;s dive into the deep end and replicate Pytorch
             </LeadText>
@@ -45,9 +45,9 @@ export default function NeuralNetworksPage() {
               Pytorch&apos;s API to train the neural network that is in
               Pytorch&apos;s{" "}
               <InlineLink href="https://docs.pytorch.org/tutorials/beginner/basics/quickstart_tutorial.html">
-                quickstart tutorial on Fashion MNIST
-              </InlineLink>
-              .
+                quickstart tutorial
+              </InlineLink>{" "}
+              on Fashion MNIST.
             </BodyText>
           </section>
 
@@ -56,30 +56,21 @@ export default function NeuralNetworksPage() {
           </section>
 
           <section className="mx-auto w-full max-w-3xl px-6">
-            <SectionTitle>The forward pass</SectionTitle>
+            <SectionTitle>Tensors</SectionTitle>
             <BodyText>
-              Given an input (e.g. a vector or an image flattened into numbers),
-              we pass it through the first layer: multiply by a weight matrix,
-              add biases, then apply an activation (e.g. ReLU). The result is
-              the input to the next layer. Repeating this layer by layer until
-              the final layer produces the network’s <strong>output</strong>—
-              for example a class score or a regression value. This sequence is
-              called the <strong>forward pass</strong>.
-            </BodyText>
-          </section>
-
-          <section className="mx-auto w-full max-w-3xl px-6">
-            <SectionTitle>Loss and the backward pass</SectionTitle>
-            <BodyText>
-              We compare the output to the desired target with a{" "}
-              <strong>loss function</strong> (e.g. cross-entropy for
-              classification, mean squared error for regression). To improve, we
-              need to know how each weight and bias affects the loss.{" "}
-              <strong>Backpropagation</strong> computes these gradients
-              efficiently by applying the chain rule from the loss back through
-              every layer. With the gradients in hand, we take a step in the
-              opposite direction—<strong>gradient descent</strong>—to reduce the
-              loss and, over many steps, fit the network to the data.
+              If you've ever looked up the definition of a tensor, you've
+              probably seen something like this:
+              <blockquote>
+                A tensor is a generalization of vectors and matrices to
+                potentially higher dimensions. In the context of machine
+                learning, tensors are often used to represent multi-dimensional
+                data, such as images, audio, and video.
+              </blockquote>
+              This is a good definition, but it's not very helpful. Let's try a
+              different approach. A tensor is a generalization of vectors and
+              matrices to potentially higher dimensions. In the context of
+              machine learning, tensors are often used to represent
+              multi-dimensional data, such as images, audio, and video.
             </BodyText>
           </section>
         </article>

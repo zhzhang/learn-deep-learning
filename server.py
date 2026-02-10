@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, Response, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -298,6 +298,39 @@ async def list_runnables(chapter_path: str) -> dict[str, Any]:
         "chapter_path": chapter_path,
         "runnables": discover_runnables(chapter_dir),
     }
+
+
+@app.get("/chapters/{chapter_path:path}/samples")
+async def list_chapter_samples(chapter_path: str) -> dict[str, Any]:
+    resolve_chapter(chapter_path)
+    if chapter_path != "torch":
+        raise HTTPException(status_code=404, detail="Sample images not configured.")
+    try:
+        from modules.torch.train import get_balanced_test_samples
+    except ImportError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    return {
+        "chapter_path": chapter_path,
+        "samples": get_balanced_test_samples(data_dir="data"),
+    }
+
+
+@app.get("/chapters/{chapter_path:path}/samples/{sample_id}.png")
+async def get_chapter_sample_image(chapter_path: str, sample_id: int) -> Response:
+    resolve_chapter(chapter_path)
+    if chapter_path != "torch":
+        raise HTTPException(status_code=404, detail="Sample images not configured.")
+    try:
+        from modules.torch.train import get_fmnist_sample_png
+    except ImportError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    try:
+        png_bytes = get_fmnist_sample_png(sample_id=sample_id, data_dir="data")
+    except IndexError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return Response(content=png_bytes, media_type="image/png")
 
 
 @app.post("/chapters/{chapter_path:path}/runs")

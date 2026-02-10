@@ -1,65 +1,63 @@
-import Image from "next/image";
+import Link from "next/link";
 
 export default function Home() {
+  const modules = [
+    { title: "Neural Networks", href: "/modules/neural-networks" },
+    { title: "Initialization", href: "/modules/initialization" },
+    { title: "Batch Normalization", href: "/modules/batch-normalization" },
+    { title: "Momentum", href: "/modules/momentum" },
+  ];
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
+    <div className="flex min-h-screen items-center px-6 py-12 font-sans text-[var(--foreground)]">
+      <main className="mx-auto w-full max-w-7xl">
+        <section
+          aria-label="Deep learning modules"
+          className="mx-auto w-full max-w-7xl"
+        >
+          <div className="overflow-x-auto pb-4">
+            <div className="mx-auto flex min-w-max items-center gap-5 px-2 sm:gap-7">
+              <ModuleCard title={modules[0].title} href={modules[0].href} />
+              <Connector />
+              <ModuleCard title={modules[1].title} href={modules[1].href} />
+              <Connector />
+              <ModuleCard title={modules[2].title} href={modules[2].href} />
+              <Connector />
+              <ModuleCard title={modules[3].title} href={modules[3].href} />
+            </div>
+          </div>
+        </section>
       </main>
+    </div>
+  );
+}
+
+type ModuleCardProps = {
+  title: string;
+  href: string;
+  className?: string;
+};
+
+function ModuleCard({ title, href, className = "" }: ModuleCardProps) {
+  return (
+    <Link
+      href={href}
+      className={`group flex h-40 min-w-[22rem] items-center justify-center rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] px-8 text-center text-xl font-semibold text-[var(--foreground)] shadow-[0_2px_10px_rgba(47,35,24,0.06)] transition hover:-translate-y-0.5 hover:border-[var(--accent)] hover:shadow-[0_8px_22px_rgba(47,35,24,0.12)] ${className}`}
+    >
+      <span>{title}</span>
+    </Link>
+  );
+}
+
+function Connector() {
+  return (
+    <div
+      aria-hidden="true"
+      className="flex items-center gap-2 text-[color-mix(in_oklab,var(--accent),white_45%)]"
+    >
+      <span className="h-px w-10 bg-current sm:w-14" />
+      <span className="h-2.5 w-2.5 rounded-full bg-current" />
+      <span className="h-px w-10 bg-current sm:w-14" />
     </div>
   );
 }

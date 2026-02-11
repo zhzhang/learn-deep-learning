@@ -21,7 +21,7 @@ class Tensor:
         if isinstance(value, list):
             value = np.array(value)
         self.value = value
-        self.zero_grad()
+        self.grad = np.zeros_like(value)
         self.name = name
         self._backward = lambda: None
         self._prev = prev

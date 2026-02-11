@@ -111,7 +111,9 @@ def get_fmnist_sample_png(sample_id: int, data_dir: str | Path = "data") -> byte
         raise ValueError("Sample id must be non-negative.")
     test_data = _load_fmnist_dataset(data_dir=data_dir, train=False)
     samples = _build_balanced_sample_descriptors(test_data)
-    sample = next((item for item in samples if int(item["sample_id"]) == sample_id), None)
+    sample = next(
+        (item for item in samples if int(item["sample_id"]) == sample_id), None
+    )
     if sample is None:
         raise IndexError("Sample id is out of range.")
     image_tensor, _ = test_data[int(sample["sample_index"])]
@@ -125,13 +127,10 @@ def evaluate_samples(
     model: nn.Module,
     test_data: datasets.FashionMNIST,
     samples: list[dict[str, Any]],
-    device: str,
 ) -> list[dict[str, Any]]:
     sample_indices = [int(sample["sample_index"]) for sample in samples]
-    images = torch.stack([test_data[index][0] for index in sample_indices]).to(device)
-    labels = torch.tensor(
-        [int(test_data[index][1]) for index in sample_indices], device=device
-    )
+    images = torch.stack([test_data[index][0] for index in sample_indices])
+    labels = torch.tensor([int(test_data[index][1]) for index in sample_indices])
 
     model.eval()
     with torch.no_grad():
@@ -161,7 +160,6 @@ def train_epoch(
     model: nn.Module,
     loss_fn: nn.Module,
     optimizer: torch.optim.Optimizer,
-    device: str,
     epoch: int,
     epochs: int,
     progress_callback: Callable[[dict[str, Any]], None] | None = None,
@@ -174,8 +172,6 @@ def train_epoch(
     seen = 0
 
     for batch_idx, (x, y) in enumerate(dataloader):
-        x, y = x.to(device), y.to(device)
-
         pred = model(x)
         loss = loss_fn(pred, y)
 
@@ -221,7 +217,6 @@ def test_epoch(
     dataloader: DataLoader,
     model: nn.Module,
     loss_fn: nn.Module,
-    device: str,
     epoch: int,
     epochs: int,
     progress_callback: Callable[[dict[str, Any]], None] | None = None,
@@ -233,7 +228,6 @@ def test_epoch(
 
     with torch.no_grad():
         for x, y in dataloader:
-            x, y = x.to(device), y.to(device)
             pred = model(x)
             total_loss += loss_fn(pred, y).item() * y.size(0)
             correct += (pred.argmax(1) == y).type(torch.float).sum().item()
@@ -263,8 +257,7 @@ def train_reference_model(
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(0)
 
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    _emit_progress(progress_callback, {"stage": "setup", "device": device})
+    _emit_progress(progress_callback, {"stage": "setup"})
 
     training_data = datasets.FashionMNIST(
         root=str(data_dir),
@@ -293,7 +286,7 @@ def train_reference_model(
     train_dataloader = DataLoader(training_data, batch_size=batch_size)
     test_dataloader = DataLoader(test_data, batch_size=batch_size)
 
-    model = MLP().to(device)
+    model = MLP()
     loss_fn = nn.CrossEntropyLoss()
     optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate)
 
@@ -304,7 +297,6 @@ def train_reference_model(
             model=model,
             loss_fn=loss_fn,
             optimizer=optimizer,
-            device=device,
             epoch=epoch,
             epochs=epochs,
             progress_callback=progress_callback,
@@ -313,12 +305,11 @@ def train_reference_model(
             dataloader=test_dataloader,
             model=model,
             loss_fn=loss_fn,
-            device=device,
             epoch=epoch,
             epochs=epochs,
             progress_callback=progress_callback,
         )
-        sample_results = evaluate_samples(model, test_data, sample_descriptors, device)
+        sample_results = evaluate_samples(model, test_data, sample_descriptors)
         _emit_progress(
             progress_callback,
             {"stage": "sample_eval", "epoch": epoch, "samples": sample_results},
@@ -339,7 +330,6 @@ def train_reference_model(
     )
     return {
         "status": "completed",
-        "device": device,
         "epochs": epochs,
         "history": history,
     }

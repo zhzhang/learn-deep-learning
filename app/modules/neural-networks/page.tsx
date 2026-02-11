@@ -1,12 +1,16 @@
 import {
   BreadcrumbLink,
   BodyText,
+  CodeBlock,
   DisplayTitle,
   InlineLink,
   LeadText,
   SectionTitle,
 } from "@/app/components/typography";
 import TrainingProgressPanel from "./training-progress-panel";
+import ReluPlot from "@/app/modules/neural-networks/relu-plot";
+import { BlockMath } from "react-katex";
+import { InlineMath } from "react-katex";
 
 export const metadata = {
   title: "Neural Networks | Deep Learning Textbook",
@@ -56,22 +60,65 @@ export default function NeuralNetworksPage() {
           </section>
 
           <section className="mx-auto w-full max-w-3xl px-6">
-            <SectionTitle>Tensors</SectionTitle>
+            <SectionTitle>How does that work?</SectionTitle>
             <BodyText>
-              If you've ever looked up the definition of a tensor, you've
-              probably seen something like this:
-              <blockquote>
-                A tensor is a generalization of vectors and matrices to
-                potentially higher dimensions. In the context of machine
-                learning, tensors are often used to represent multi-dimensional
-                data, such as images, audio, and video.
-              </blockquote>
-              This is a good definition, but it's not very helpful. Let's try a
-              different approach. A tensor is a generalization of vectors and
-              matrices to potentially higher dimensions. In the context of
-              machine learning, tensors are often used to represent
-              multi-dimensional data, such as images, audio, and video.
+              If you looked at `modules/torch/reference.py`, you&apos;ll see the
+              reference implement of a multi-layer perceptron (MLP).
+              Specifically, the part that defines the model architecture are the
+              lines:
             </BodyText>
+            <CodeBlock language="python">
+              {`
+nn.Sequential(
+    nn.Linear(28 * 28, 512),
+    nn.ReLU(),
+    nn.Linear(512, 512),
+    nn.ReLU(),
+    nn.Linear(512, 10),
+)`}
+            </CodeBlock>
+            <BodyText>
+              What this code says is that we have a model with 3 linear layers,
+              with rectified linear units (ReLU) between each layer.
+            </BodyText>
+            <BodyText>
+              A linear layer is a matrix multiplication followed by a bias
+              addition.
+            </BodyText>
+            <BlockMath>y = Wx + b</BlockMath>
+            <BodyText>For example, with concrete vectors:</BodyText>
+            <BlockMath>{`\\begin{bmatrix}y_1 \\\\ y_2\\end{bmatrix}
+=
+\\begin{bmatrix}2 & -1 \\\\ 0 & 3\\end{bmatrix}
+\\begin{bmatrix}4 \\\\ 5\\end{bmatrix}
++
+\\begin{bmatrix}1 \\\\ -2\\end{bmatrix}
+=
+\\begin{bmatrix}4 \\\\ 13\\end{bmatrix}`}</BlockMath>
+            <BodyText>
+              If this looks the same as the formula for a line you learned in
+              algebra <InlineMath>y = mx + b</InlineMath>, that&apos;s because
+              it is! Linear layers define a line in n-dimensional space.
+            </BodyText>
+            <BodyText>
+              The role of the ReLU activation function is to introduce
+              non-linearity into the model, and allow us to &quot;pick&quot; the
+              data that falls only on one side of the line defined by the linear
+              layer. All that ReLU does is set any negative values to 0.
+            </BodyText>
+            <BlockMath>{`\\text{ReLU}\\left(
+\\begin{bmatrix}
+-2.3 & 1.7 & 0.0 \\\\
+3.2 & -4.8 & 5.1 \\\\
+-1.4 & -6.0 & 2.9
+\\end{bmatrix}
+\\right)
+=
+\\begin{bmatrix}
+0.0 & 1.7 & 0.0 \\\\
+3.2 & 0.0 & 5.1 \\\\
+0.0 & 0.0 & 2.9
+\\end{bmatrix}`}</BlockMath>
           </section>
         </article>
       </main>

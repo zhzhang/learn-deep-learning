@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Source_Serif_4 } from "next/font/google";
 import "./globals.css";
+import "katex/dist/katex.min.css";
 
 const inter = Inter({
   variable: "--font-ui",
